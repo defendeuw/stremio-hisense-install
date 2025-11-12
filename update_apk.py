@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Stremio APK Updater
-Downloads the latest Stremio APK for sideloading
+Stremio APK Updater with Multiple Mirrors and Failsafe
+Downloads the latest Stremio APK for sideloading with automatic fallback
 """
 
 import os
@@ -9,10 +9,35 @@ import sys
 import json
 import urllib.request
 import urllib.error
+import time
 from datetime import datetime
 
 CONFIG_FILE = 'config.json'
 APK_FILE = 'stremio.apk'
+
+# Multiple mirror URLs for Stremio APK (automatic failover)
+# These are checked in order if one fails
+STREMIO_MIRRORS = [
+    {
+        "name": "Official Stremio CDN (Primary)",
+        "url": "https://dl.strem.io/android/v1.6.11/StremioTV-1.6.11.apk",
+        "priority": 1
+    },
+    {
+        "name": "Official Stremio CDN (Alt)",
+        "url": "https://dl.strem.io/android/latest/stremio.apk",
+        "priority": 2
+    },
+    {
+        "name": "GitHub Releases (Backup)",
+        "url": "https://github.com/Stremio/stremio-shell/releases/latest/download/stremio-android-tv.apk",
+        "priority": 3
+    }
+]
+
+# Retry configuration
+MAX_RETRIES = 3
+RETRY_DELAY = 2  # seconds, will use exponential backoff
 
 # Color codes for terminal output
 class Colors:
@@ -64,27 +89,95 @@ def download_progress_hook(block_num, block_size, total_size):
         print(f"\r  [{bar}] {percent:.1f}% ({downloaded_mb:.1f}/{total_mb:.1f} MB)", end='', flush=True)
 
 
-def download_apk(url, output_file):
-    """Download APK file with progress bar"""
+def download_apk_with_retry(url, output_file, mirror_name="", retry_count=0):
+    """Download APK file with retry logic"""
     try:
-        print_colored(f"\nDownloading from: {url}", Colors.OKCYAN)
+        if retry_count > 0:
+            print_colored(f"  Retry attempt {retry_count}/{MAX_RETRIES}...", Colors.WARNING)
+
+        print_colored(f"\nDownloading from: {mirror_name}", Colors.OKCYAN)
+        print_colored(f"URL: {url}", Colors.OKCYAN)
         print_colored("This may take a few minutes depending on your connection...\n", Colors.WARNING)
 
         # Download with progress
         urllib.request.urlretrieve(url, output_file, reporthook=download_progress_hook)
         print()  # New line after progress bar
 
-        return True
+        return True, None
 
     except urllib.error.HTTPError as e:
-        print_colored(f"\n\nHTTP Error: {e.code} - {e.reason}", Colors.FAIL)
-        return False
+        error_msg = f"HTTP Error {e.code}: {e.reason}"
+        print_colored(f"\n\n{error_msg}", Colors.FAIL)
+        return False, error_msg
     except urllib.error.URLError as e:
-        print_colored(f"\n\nURL Error: {e.reason}", Colors.FAIL)
-        return False
+        error_msg = f"URL Error: {e.reason}"
+        print_colored(f"\n\n{error_msg}", Colors.FAIL)
+        return False, error_msg
     except Exception as e:
-        print_colored(f"\n\nError: {e}", Colors.FAIL)
-        return False
+        error_msg = f"Error: {str(e)}"
+        print_colored(f"\n\n{error_msg}", Colors.FAIL)
+        return False, error_msg
+
+
+def download_with_mirrors(mirrors, output_file):
+    """Try downloading from multiple mirrors with retry logic"""
+    print_colored(f"Attempting download with {len(mirrors)} available mirrors...", Colors.OKBLUE)
+    print()
+
+    all_errors = []
+
+    for mirror_idx, mirror in enumerate(mirrors, 1):
+        mirror_name = mirror['name']
+        mirror_url = mirror['url']
+
+        print_colored(f"[Mirror {mirror_idx}/{len(mirrors)}] {mirror_name}", Colors.HEADER)
+        print_colored("─" * 60, Colors.OKBLUE)
+
+        # Try this mirror with retries
+        for attempt in range(MAX_RETRIES):
+            success, error = download_apk_with_retry(
+                mirror_url,
+                output_file,
+                mirror_name,
+                retry_count=attempt
+            )
+
+            if success:
+                print_colored(f"\n✓ Successfully downloaded from: {mirror_name}", Colors.OKGREEN)
+                return True
+
+            # Record error
+            all_errors.append({
+                'mirror': mirror_name,
+                'attempt': attempt + 1,
+                'error': error
+            })
+
+            # If not last retry, wait before trying again
+            if attempt < MAX_RETRIES - 1:
+                wait_time = RETRY_DELAY * (2 ** attempt)  # Exponential backoff
+                print_colored(f"  Waiting {wait_time}s before retry...", Colors.WARNING)
+                time.sleep(wait_time)
+            else:
+                print_colored(f"  Failed after {MAX_RETRIES} attempts", Colors.FAIL)
+
+        # Try next mirror if this one failed
+        if mirror_idx < len(mirrors):
+            print()
+            print_colored(f"Switching to next mirror...", Colors.WARNING)
+            print()
+
+    # All mirrors failed
+    print()
+    print_colored("=" * 60, Colors.FAIL)
+    print_colored("✗ Download failed from all mirrors", Colors.FAIL)
+    print_colored("=" * 60, Colors.FAIL)
+    print()
+    print_colored("Error summary:", Colors.HEADER)
+    for err in all_errors:
+        print_colored(f"  [{err['mirror']}] Attempt {err['attempt']}: {err['error']}", Colors.FAIL)
+
+    return False
 
 
 def backup_old_apk():
@@ -98,27 +191,49 @@ def backup_old_apk():
     return None
 
 
+def get_mirrors(config):
+    """Get mirror list from config or use defaults"""
+    mirrors = []
+
+    # Check if config has custom URL
+    custom_url = config.get('stremio_apk_url')
+    if custom_url:
+        mirrors.append({
+            'name': 'Custom URL (from config.json)',
+            'url': custom_url,
+            'priority': 0
+        })
+
+    # Add built-in mirrors
+    mirrors.extend(STREMIO_MIRRORS)
+
+    # Sort by priority
+    mirrors.sort(key=lambda x: x['priority'])
+
+    return mirrors
+
+
 def main():
     """Main function"""
     print_colored("=" * 60, Colors.HEADER)
-    print_colored("Stremio APK Updater", Colors.HEADER)
+    print_colored("Stremio APK Updater with Failsafe", Colors.HEADER)
     print_colored("=" * 60, Colors.HEADER)
     print()
 
     # Load config
-    print_colored("[1/4] Loading configuration...", Colors.OKBLUE)
+    print_colored("[1/5] Loading configuration...", Colors.OKBLUE)
     config = load_config()
-    apk_url = config.get('stremio_apk_url')
 
-    if not apk_url:
-        print_colored("  Error: 'stremio_apk_url' not found in config.json", Colors.FAIL)
-        sys.exit(1)
+    # Get available mirrors
+    mirrors = get_mirrors(config)
+    print_colored(f"  ✓ Found {len(mirrors)} download mirrors", Colors.OKGREEN)
+    for idx, mirror in enumerate(mirrors, 1):
+        print_colored(f"    {idx}. {mirror['name']}", Colors.OKCYAN)
 
-    print_colored(f"  ✓ APK URL: {apk_url}", Colors.OKGREEN)
     print()
 
     # Check existing APK
-    print_colored("[2/4] Checking existing APK...", Colors.OKBLUE)
+    print_colored("[2/5] Checking existing APK...", Colors.OKBLUE)
     if os.path.exists(APK_FILE):
         size = get_file_size(APK_FILE)
         mod_time = datetime.fromtimestamp(os.path.getmtime(APK_FILE)).strftime("%Y-%m-%d %H:%M:%S")
@@ -139,35 +254,61 @@ def main():
 
     print()
 
-    # Download APK
-    print_colored("[3/4] Downloading Stremio APK...", Colors.OKBLUE)
-    success = download_apk(apk_url, APK_FILE)
+    # Download APK with mirror failover
+    print_colored("[3/5] Downloading Stremio APK...", Colors.OKBLUE)
+    print_colored("Using automatic failover - will try all mirrors if needed", Colors.OKBLUE)
+    print()
+
+    success = download_with_mirrors(mirrors, APK_FILE)
 
     if not success:
-        print_colored("\nDownload failed!", Colors.FAIL)
+        print()
+        print_colored("=" * 60, Colors.FAIL)
+        print_colored("✗ Download Failed", Colors.FAIL)
+        print_colored("=" * 60, Colors.FAIL)
+        print()
+        print_colored("All mirrors failed. Possible solutions:", Colors.WARNING)
+        print_colored("  1. Check your internet connection", Colors.OKCYAN)
+        print_colored("  2. Try again later (servers might be down)", Colors.OKCYAN)
+        print_colored("  3. Download APK manually from https://www.stremio.com/downloads", Colors.OKCYAN)
+        print_colored("     and save it as 'stremio.apk' in this folder", Colors.OKCYAN)
+        print_colored("  4. Check if your firewall/antivirus is blocking downloads", Colors.OKCYAN)
+        print()
         sys.exit(1)
 
     print()
 
     # Verify download
-    print_colored("[4/4] Verifying download...", Colors.OKBLUE)
+    print_colored("[4/5] Verifying download...", Colors.OKBLUE)
     if os.path.exists(APK_FILE):
         size = get_file_size(APK_FILE)
-        print_colored(f"  ✓ APK downloaded successfully: {size}", Colors.OKGREEN)
+        file_size_bytes = os.path.getsize(APK_FILE)
+
+        # Check if file is too small (likely corrupted)
+        if file_size_bytes < 10 * 1024 * 1024:  # Less than 10 MB
+            print_colored(f"  ✗ Warning: Downloaded file seems too small ({size})", Colors.WARNING)
+            print_colored("  This might be a corrupted download. Try running update again.", Colors.WARNING)
+        else:
+            print_colored(f"  ✓ APK downloaded successfully: {size}", Colors.OKGREEN)
+            print_colored(f"  ✓ File size looks correct", Colors.OKGREEN)
     else:
         print_colored("  Error: APK file not found after download!", Colors.FAIL)
         sys.exit(1)
 
     print()
+
+    # Final message
+    print_colored("[5/5] Update complete!", Colors.OKBLUE)
+    print()
     print_colored("=" * 60, Colors.OKGREEN)
-    print_colored("✓ Update Complete!", Colors.OKGREEN)
+    print_colored("✓ Stremio APK Ready!", Colors.OKGREEN)
     print_colored("=" * 60, Colors.OKGREEN)
     print()
-    print_colored("Next steps:", Colors.HEADER)
+    print_colored("Next steps to install/update on your TV:", Colors.HEADER)
     print_colored("  1. Start the server: sudo python3 server.py", Colors.OKCYAN)
     print_colored("  2. Change your TV's DNS to your computer's IP", Colors.OKCYAN)
     print_colored("  3. Open https://vidaahub.com/ on your TV", Colors.OKCYAN)
-    print_colored("  4. Click 'Install Stremio' to update the app", Colors.OKCYAN)
+    print_colored("  4. Click 'Install Stremio' to install/update", Colors.OKCYAN)
     print_colored("  5. Restore DNS settings and restart your TV", Colors.OKCYAN)
     print()
 
