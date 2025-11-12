@@ -86,7 +86,7 @@ class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             else:
                 self.wfile.write(b"<h1>Error: index.html not found</h1>")
 
-        # Serve the APK file
+        # Serve the Stremio APK file
         elif self.path.startswith('/stremio'):
             apk_file = 'stremio.apk'
             if os.path.exists(apk_file):
@@ -100,13 +100,35 @@ class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 with open(apk_file, 'rb') as f:
                     self.wfile.write(f.read())
 
-                logger.info(f"Served APK file ({file_size} bytes)")
+                logger.info(f"Served Stremio APK ({file_size} bytes)")
             else:
                 self.send_response(404)
                 self.send_header('Content-type', 'text/html')
                 self.end_headers()
-                self.wfile.write(b"<h1>APK file not found</h1>")
-                logger.error("APK file not found!")
+                self.wfile.write(b"<h1>Stremio APK file not found</h1>")
+                logger.error("Stremio APK file not found!")
+
+        # Serve the APKPure APK file (optional - for easy updates on TV)
+        elif self.path.startswith('/apkpure'):
+            apk_file = 'apkpure.apk'
+            if os.path.exists(apk_file):
+                self.send_response(200)
+                self.send_header('Content-type', 'application/vnd.android.package-archive')
+                self.send_header('Content-Disposition', f'attachment; filename="apkpure.apk"')
+                file_size = os.path.getsize(apk_file)
+                self.send_header('Content-Length', str(file_size))
+                self.end_headers()
+
+                with open(apk_file, 'rb') as f:
+                    self.wfile.write(f.read())
+
+                logger.info(f"Served APKPure APK ({file_size} bytes)")
+            else:
+                self.send_response(404)
+                self.send_header('Content-type', 'text/html')
+                self.end_headers()
+                self.wfile.write(b"<h1>APKPure not available. Download from apkpure.com</h1>")
+                logger.info("APKPure APK requested but not found (optional file)")
 
         else:
             # Default file serving
