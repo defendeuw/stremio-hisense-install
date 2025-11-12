@@ -2,16 +2,58 @@
 
 > **Complete solution for installing and updating Stremio on Hisense TVs running Vidaa OS**
 
-This project allows you to easily install and **UPDATE** Stremio on Hisense TV devices running Vidaa OS (including PX1TUK-PRO and other models). Unlike traditional sideloading methods, this solution includes an **easy update mechanism** so you never have to redo the entire installation when Stremio gets outdated.
+This project allows you to easily install and **UPDATE** Stremio on Hisense TV devices running Vidaa OS (including PX1TUK-PRO and other models). Multiple installation methods available - **choose the one that works best for you!**
+
+---
+
+## 🎯 Choose Your Installation Method
+
+### Method 1: USB Installation (Simplest - Recommended for Most Users)
+**⏱️ 2 minutes**
+
+1. Download Stremio APK
+2. Copy to USB drive
+3. Plug into TV and install
+4. Done!
+
+**👉 [USB Installation Guide](USB_INSTALL.md)**
+
+---
+
+### Method 2: Windows GUI App (Easiest for Windows Users)
+**⏱️ 5 minutes | Windows only**
+
+1. Download and run `StremioHisenseInstaller.exe`
+2. Click "Download APK"
+3. Click "Start Server"
+4. Follow on-screen TV instructions
+5. Done!
+
+**👉 [Download Windows App (Coming Soon - GitHub Releases)](#)**
+**👉 [Build Instructions](BUILD_EXE.md)**
+
+---
+
+### Method 3: DNS Installation (Advanced - Remote Install)
+**⏱️ 15-20 minutes | All platforms**
+
+1. Run Python server on computer
+2. Change TV DNS settings
+3. Install via TV browser
+4. Best for remote/network installation
+
+**👉 [DNS Installation Guide](#-initial-setup-first-time-installation)** (below)
+
+---
 
 ## 📖 Table of Contents
 
+- [Installation Methods](#-choose-your-installation-method)
 - [Key Features](#-key-features)
 - [How It Works](#-how-it-works)
 - [Prerequisites](#-prerequisites)
-- [Installation Guide](#-installation-guide)
-  - [Initial Setup](#-initial-setup-first-time-installation)
-  - [Updating Stremio](#-updating-stremio-when-it-gets-old)
+- [DNS Installation Guide](#-initial-setup-first-time-installation)
+- [Updating Stremio](#-updating-stremio-when-it-gets-old)
 - [Troubleshooting](#-troubleshooting)
 - [Advanced Configuration](#-advanced-configuration)
 - [Technical Details](#-technical-details)
