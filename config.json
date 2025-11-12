@@ -1,0 +1,7 @@
+{
+  "local_ip": "192.168.1.100",
+  "http_port": 80,
+  "dns_port": 53,
+  "target_domain": "vidaahub.com",
+  "stremio_apk_url": "https://dl.strem.io/android/v1.6.11/StremioTV-1.6.11.apk"
+}
