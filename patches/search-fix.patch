@@ -1,0 +1,33 @@
+diff --git a/src/components/NavBar/HorizontalNavBar/SearchBar/SearchBar.js b/src/components/NavBar/HorizontalNavBar/SearchBar/SearchBar.js
+index 1234567..abcdefg 100644
+--- a/src/components/NavBar/HorizontalNavBar/SearchBar/SearchBar.js
++++ b/src/components/NavBar/HorizontalNavBar/SearchBar/SearchBar.js
+@@ -59,11 +59,23 @@ const SearchBar = React.memo(({ className, query, active }) => {
+         }
+     }, [createTorrentFromMagnet]);
+
++    // FIXED: TV Browser Search Submit Handler
+     const queryInputOnSubmit = React.useCallback((event) => {
+         event.preventDefault();
+-        const searchValue = `/search?search=${encodeURIComponent(event.target.value)}`;
+-        setCurrentQuery(searchValue);
+-        if (searchInputRef.current && searchValue) {
++
++        // Debug logging (can be removed in production)
++        console.log('[SearchBar] Submit triggered:', {
++            eventType: event.type,
++            targetType: event.target?.constructor?.name,
++            inputValue: searchInputRef.current?.value,
++            currentQuery: currentQuery
++        });
++
++        // FIX: Use searchInputRef.current.value instead of event.target.value
++        const inputValue = searchInputRef.current?.value || currentQuery || '';
++        const searchValue = `/search?search=${encodeURIComponent(inputValue)}`;
++        setCurrentQuery(inputValue);
++        if (searchInputRef.current && inputValue) {
+             window.location.hash = searchValue;
+             closeHistory();
+         }
+-    }, []);
++    }, [currentQuery]);

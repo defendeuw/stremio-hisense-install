@@ -1,74 +1,211 @@
 # Quick Start Guide
 
-## First Time Installation
+## For End Users (Just want to use fixed Stremio Web)
+
+### Option 1: Use hosted version (when available)
+```
+https://YOUR-GITHUB-USERNAME.github.io/stremio-web
+```
+
+### Option 2: Deploy your own in 5 minutes
+
+**Step 1:** Download this release
+**Step 2:** Extract the files
+**Step 3:** Run these commands:
 
 ```bash
-# 1. Install dependencies
-pip3 install -r requirements.txt
+# Clone Stremio Web
+git clone https://github.com/Stremio/stremio-web.git
+cd stremio-web
 
-# 2. Edit config.json with your IP address
-# Replace 192.168.1.100 with your computer's actual IP
+# Install dependencies
+npm install
 
-# 3. Download Stremio APK
-python3 update_apk.py
+# Copy our fixes
+cp ../fixes/SearchBar.js src/routes/Search/SearchBar/SearchBar.js
+cp ../fixes/useSearch.js src/routes/Search/useSearch.js
 
-# 4. Start the server (requires sudo/admin)
-sudo python3 server.py
+# Build
+npm run build
 
-# 5. On your TV:
-#    - Change DNS to your computer's IP
-#    - Open https://vidaahub.com/
-#    - Click "Install Stremio"
-#    - Restore DNS settings
-#    - Restart TV
+# Deploy to GitHub Pages
+npm install -g gh-pages
+gh-pages -d build
 ```
 
-## Update Stremio (When it gets old)
+**Step 4:** Access at `https://YOUR-USERNAME.github.io/stremio-web`
+
+---
+
+## For Developers (Want to modify/improve)
+
+### Setup
 
 ```bash
-# 1. Download latest APK
-python3 update_apk.py
+# Clone this repository
+git clone https://github.com/YOUR-USERNAME/stremio-hisense-install.git
+cd stremio-hisense-install
 
-# 2. Start server
-sudo python3 server.py
+# Clone Stremio Web
+git clone https://github.com/Stremio/stremio-web.git
+cd stremio-web
 
-# 3. On your TV:
-#    - Change DNS to your computer's IP
-#    - Open https://vidaahub.com/
-#    - Click "Install Stremio"
-#    - Restore DNS settings
-#    - Restart TV
+# Install
+npm install
 ```
 
-## Find Your IP Address
+### Apply fixes
 
-**Windows:**
-```cmd
-ipconfig
-```
-Look for "IPv4 Address" (e.g., 192.168.1.100)
-
-**macOS/Linux:**
 ```bash
-ifconfig | grep inet
-# or
-ip addr show
-# or
-hostname -I
+# From stremio-web directory
+cp ../fixes/SearchBar.js src/routes/Search/SearchBar/SearchBar.js
+cp ../fixes/useSearch.js src/routes/Search/useSearch.js
 ```
+
+### Test locally
+
+```bash
+npm start
+# Open http://localhost:8080
+# Test search functionality
+```
+
+### Build for production
+
+```bash
+npm run build
+# Output in build/ directory
+```
+
+### Deploy
+
+**GitHub Pages:**
+```bash
+gh-pages -d build
+```
+
+**Netlify:**
+- Drag `build/` folder to netlify.com
+
+**Self-hosted:**
+```bash
+scp -r build/* user@server:/var/www/stremio-web/
+```
+
+---
+
+## What Gets Fixed
+
+✅ **Search button actually works** on TV remotes
+✅ **Multiple event listeners** for compatibility
+✅ **Loading indicators** show while searching
+✅ **Error handling** prevents crashes
+✅ **Debug console** for troubleshooting (Ctrl+Shift+D)
+
+---
+
+## Testing on TV
+
+1. Deploy to HTTPS URL (required)
+2. Open TV browser
+3. Navigate to your URL
+4. Click search icon
+5. Type something
+6. Press remote "OK" button or Enter
+7. **Should show loading → results**
+
+If step 7 fails, enable debug console (Ctrl+Shift+D) and check for errors.
+
+---
 
 ## Common Issues
 
-**"Permission denied" when starting server:**
-- Use `sudo` on Linux/macOS
-- Run Command Prompt as Administrator on Windows
+**Search still doesn't work:**
+- Check you're using HTTPS (WebAssembly requires it)
+- Clear TV browser cache
+- Enable debug console to see errors
 
-**TV can't connect:**
-- Make sure computer and TV are on the same network
-- Verify DNS is set to your computer's IP
-- Check that server is running (terminal shows "Server started")
+**No results found:**
+- Install Cinemeta addon
+- Remove broken addons at profile-debugger.strem.io
 
-**APK not found:**
-- Run `python3 update_apk.py` first
+**Build fails:**
+```bash
+rm -rf node_modules
+npm install
+npm run build
+```
 
-For detailed instructions, see [README.md](README.md)
+See [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for more.
+
+---
+
+## File Structure
+
+```
+stremio-hisense-install/
+├── README.md              # Full documentation
+├── QUICKSTART.md          # This file
+├── CUSTOM_WEB_BUILD.md    # Detailed build guide
+├── fixes/
+│   ├── SearchBar.js       # Fixed search input component
+│   └── useSearch.js       # Fixed search logic
+├── docs/
+│   ├── DEPLOYMENT.md      # All deployment options
+│   └── TROUBLESHOOTING.md # Common issues
+└── stremio-web/           # Clone from GitHub (not in repo)
+```
+
+---
+
+## Quick Commands Reference
+
+```bash
+# Clone Stremio Web
+git clone https://github.com/Stremio/stremio-web.git
+
+# Install dependencies
+cd stremio-web && npm install
+
+# Apply our fixes
+cp ../fixes/*.js src/routes/Search/
+
+# Test locally
+npm start
+
+# Build
+npm run build
+
+# Deploy to GitHub Pages
+gh-pages -d build
+
+# Deploy to Netlify
+# Drag build/ folder to netlify.com
+
+# Check for errors in browser
+# Press F12 → Console tab
+```
+
+---
+
+## Need Help?
+
+1. **Check [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** - Most common issues
+2. **Enable debug console** (Ctrl+Shift+D) - See what's happening
+3. **Test on desktop first** - Easier to debug
+4. **Open GitHub issue** - Include debug console output
+
+---
+
+## Next Steps
+
+1. ✅ Deploy fixed version
+2. ✅ Test on TV browser
+3. ✅ Bookmark for easy access
+4. ✅ Share with other Hisense users!
+
+---
+
+**Most important:** Use HTTPS! WebAssembly won't work over HTTP.
+
+GitHub Pages and Netlify provide free HTTPS automatically. ✨
