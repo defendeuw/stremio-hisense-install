@@ -42,5 +42,14 @@ env/
 # Backups
 *_backup_*.apk
 
+# PyInstaller
+*.spec
+
+# Claude Code
+.claude/
+
+# Release artifacts
+release/
+
 # Downloads directory (optional - uncomment if you don't want to track it)
 # downloads/
