@@ -14,6 +14,8 @@ When using Stremio Web (web.strem.io) on Hisense TV browsers:
 
 This is a critical bug that makes Stremio Web unusable on TV browsers.
 
+**Note:** This is a **specific event handling bug**, not a general TV browser limitation. The app loads and works fine except for this one issue. See [TV_BROWSER_LIMITATIONS.md](TV_BROWSER_LIMITATIONS.md) for context on why this happens.
+
 ## ✅ The Solution
 
 This repository provides a **fixed version of Stremio Web** that:
@@ -202,21 +204,37 @@ The console shows:
 **Issue: Some searches work, others don't**
 - Solution: Broken addon catalog - clean your profile at profile-debugger.strem.io
 
-## 📚 Repository Structure
+## 📚 Documentation
+
+### Main Guides
+- **[INSTALL_FIX.md](INSTALL_FIX.md)** - Step-by-step fix installation (START HERE!)
+- **[QUICKSTART.md](QUICKSTART.md)** - Quick reference for common tasks
+- **[TV_BROWSER_LIMITATIONS.md](TV_BROWSER_LIMITATIONS.md)** - Why TV browsers differ from PC browsers
+- **[CUSTOM_WEB_BUILD.md](CUSTOM_WEB_BUILD.md)** - Advanced customization guide
+- **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)** - Complete project overview
+
+### Additional Resources
+- **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** - All deployment options (GitHub Pages, Netlify, etc.)
+- **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+
+## 📂 Repository Structure
 
 ```
 stremio-hisense-install/
-├── README.md                    # This file
-├── CUSTOM_WEB_BUILD.md         # Detailed build guide
-├── fixes/                      # Fixed source files
-│   ├── Search.js              # Main search component
-│   ├── SearchBar.js           # Input component
-│   └── useSearch.js           # Search hook
-├── patches/                    # Git patches
-│   └── search-fix.patch       # Automated patch
-└── docs/                      # Additional documentation
-    ├── DEPLOYMENT.md          # Deployment guides
-    └── TROUBLESHOOTING.md     # Common issues
+├── README.md                                # This file
+├── INSTALL_FIX.md                           # Fix installation guide ⭐ START HERE
+├── QUICKSTART.md                            # Quick reference
+├── TV_BROWSER_LIMITATIONS.md                # TV vs PC browser differences
+├── CUSTOM_WEB_BUILD.md                      # Advanced guide
+├── PROJECT_SUMMARY.md                       # Project overview
+├── fixes/
+│   └── HorizontalNavBar-SearchBar.js        # Fixed SearchBar component
+├── patches/
+│   └── search-fix.patch                     # Git patch file
+├── docs/
+│   ├── DEPLOYMENT.md                        # Deployment options
+│   └── TROUBLESHOOTING.md                   # Common issues
+└── stremio-web/                             # Cloned official repo (not committed)
 ```
 
 ## 🎯 For Hisense TV Users
