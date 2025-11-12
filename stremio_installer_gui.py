@@ -102,18 +102,34 @@ class StremioInstallerGUI:
         self.download_status = tk.Label(download_frame, text="Not downloaded", font=("Arial", 9), fg="orange")
         self.download_status.pack(anchor=tk.W)
 
+        btn_frame = tk.Frame(download_frame)
+        btn_frame.pack(pady=5)
+
         tk.Button(
-            download_frame,
+            btn_frame,
             text="Download Stremio APK",
             command=self.download_apk,
             bg="#2196F3",
             fg="white",
-            font=("Arial", 10, "bold"),
-            width=25
-        ).pack(pady=5)
+            font=("Arial", 9, "bold"),
+            width=20
+        ).pack(side=tk.LEFT, padx=5)
 
-        self.download_progress = ttk.Progressbar(download_frame, mode='indeterminate')
+        tk.Button(
+            btn_frame,
+            text="+ APKPure (Updater)",
+            command=self.download_apkpure,
+            bg="#4CAF50",
+            fg="white",
+            font=("Arial", 9, "bold"),
+            width=18
+        ).pack(side=tk.LEFT, padx=5)
+
+        self.download_progress = ttk.Progressbar(download_frame, mode='determinate', maximum=100)
         self.download_progress.pack(fill=tk.X, pady=5)
+
+        self.download_progress_label = tk.Label(download_frame, text="", font=("Arial", 8), fg="gray")
+        self.download_progress_label.pack()
 
         # Server control section
         server_frame = tk.LabelFrame(main_frame, text="Step 3: Start Server", font=("Arial", 10, "bold"), padx=10, pady=10)
@@ -163,12 +179,16 @@ class StremioInstallerGUI:
 
 8. Click "Install Stremio" button
 
-9. After installation, restore DNS to Automatic
+9. OPTIONAL: Click APKPure link to install updater (recommended!)
 
-10. Restart TV and enjoy Stremio!
+10. After installation, restore DNS to Automatic
+
+11. Restart TV and enjoy Stremio!
 
 ALTERNATIVE: USB Installation (Easier!)
-- After downloading APK above, copy 'stremio.apk' to USB drive
+- After downloading APKs above, copy to USB drive:
+  • stremio.apk (required)
+  • apkpure.apk (optional - for easy updates)
 - Plug USB into TV and install from File Manager
 - No DNS changes needed!
 """
@@ -196,8 +216,9 @@ ALTERNATIVE: USB Installation (Easier!)
             if not response:
                 return
 
-        self.download_progress.start()
-        self.download_status.config(text="Downloading...", fg="orange")
+        self.download_progress['value'] = 0
+        self.download_progress_label.config(text="Preparing download...")
+        self.download_status.config(text="Downloading Stremio...", fg="orange")
         self.status_bar.config(text="Downloading Stremio APK...")
 
         # Run download in separate thread
@@ -205,37 +226,179 @@ ALTERNATIVE: USB Installation (Easier!)
         thread.daemon = True
         thread.start()
 
+    def download_apkpure(self):
+        """Download APKPure APK"""
+        if os.path.exists('apkpure.apk'):
+            response = messagebox.askyesno(
+                "APK Exists",
+                "APKPure APK already exists. Download again?"
+            )
+            if not response:
+                return
+
+        self.download_progress['value'] = 0
+        self.download_progress_label.config(text="Preparing download...")
+        self.download_status.config(text="Downloading APKPure...", fg="orange")
+        self.status_bar.config(text="Downloading APKPure APK...")
+
+        # Run download in separate thread
+        thread = threading.Thread(target=self._download_apkpure_thread)
+        thread.daemon = True
+        thread.start()
+
     def _download_apk_thread(self):
         """Download APK in background thread"""
         try:
-            # Check if update_apk.py exists
-            if os.path.exists('update_apk.py'):
-                # Use the update script
-                result = subprocess.run(
-                    [sys.executable, 'update_apk.py'],
-                    capture_output=True,
-                    text=True,
-                    input='y\n'  # Auto-confirm download
-                )
+            # Multiple mirror URLs for failover
+            mirrors = [
+                "https://dl.strem.io/android/v1.6.11/StremioTV-1.6.11.apk",
+                "https://dl.strem.io/android/latest/stremio.apk",
+                "https://github.com/Stremio/stremio-shell/releases/latest/download/stremio-android-tv.apk"
+            ]
 
-                if result.returncode == 0 and os.path.exists('stremio.apk'):
-                    self.root.after(0, self._download_success)
-                else:
-                    self.root.after(0, self._download_failed, "Update script failed")
-            else:
-                # Fallback: direct download
-                url = "https://dl.strem.io/android/v1.6.11/StremioTV-1.6.11.apk"
-                urllib.request.urlretrieve(url, 'stremio.apk')
+            # Backup old APK if exists
+            if os.path.exists('stremio.apk'):
+                try:
+                    from datetime import datetime
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    backup_name = f"stremio_backup_{timestamp}.apk"
+                    os.rename('stremio.apk', backup_name)
+                except:
+                    pass  # Ignore backup errors
+
+            # Try each mirror until one succeeds
+            download_success = False
+            last_error = None
+
+            for mirror_idx, mirror_url in enumerate(mirrors, 1):
+                try:
+                    # Update status
+                    self.root.after(0, lambda idx=mirror_idx: self.download_progress_label.config(
+                        text=f"Trying mirror {idx}/{len(mirrors)}..."
+                    ))
+
+                    # Download with progress callback
+                    def progress_callback(block_num, block_size, total_size):
+                        if total_size > 0:
+                            percent = min(block_num * block_size * 100.0 / total_size, 100)
+                            downloaded_mb = (block_num * block_size) / (1024 * 1024)
+                            total_mb = total_size / (1024 * 1024)
+
+                            # Update progress bar and label
+                            self.root.after(0, lambda p=percent, d=downloaded_mb, t=total_mb: (
+                                self.download_progress.config(value=p),
+                                self.download_progress_label.config(
+                                    text=f"Downloading: {d:.1f} MB / {t:.1f} MB ({p:.1f}%)"
+                                )
+                            ))
+
+                    urllib.request.urlretrieve(mirror_url, 'stremio.apk', reporthook=progress_callback)
+
+                    # Verify file size
+                    if os.path.exists('stremio.apk'):
+                        file_size = os.path.getsize('stremio.apk')
+                        if file_size > 10 * 1024 * 1024:  # At least 10 MB
+                            download_success = True
+                            break
+                        else:
+                            os.remove('stremio.apk')
+                            last_error = f"Downloaded file too small ({file_size} bytes)"
+                except Exception as e:
+                    last_error = str(e)
+                    continue
+
+            if download_success:
                 self.root.after(0, self._download_success)
+            else:
+                self.root.after(0, self._download_failed, last_error or "All mirrors failed")
 
         except Exception as e:
             self.root.after(0, self._download_failed, str(e))
 
+    def _download_apkpure_thread(self):
+        """Download APKPure APK in background thread"""
+        try:
+            # APKPure download URL (direct APK link)
+            apkpure_url = "https://download.apkpure.com/b/APK/com.apkpure.aegon?version=latest"
+
+            # Backup old APKPure if exists
+            if os.path.exists('apkpure.apk'):
+                try:
+                    from datetime import datetime
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    backup_name = f"apkpure_backup_{timestamp}.apk"
+                    os.rename('apkpure.apk', backup_name)
+                except:
+                    pass
+
+            # Update status
+            self.root.after(0, lambda: self.download_progress_label.config(
+                text="Downloading APKPure..."
+            ))
+
+            # Download with progress callback
+            def progress_callback(block_num, block_size, total_size):
+                if total_size > 0:
+                    percent = min(block_num * block_size * 100.0 / total_size, 100)
+                    downloaded_mb = (block_num * block_size) / (1024 * 1024)
+                    total_mb = total_size / (1024 * 1024)
+
+                    # Update progress bar and label
+                    self.root.after(0, lambda p=percent, d=downloaded_mb, t=total_mb: (
+                        self.download_progress.config(value=p),
+                        self.download_progress_label.config(
+                            text=f"Downloading APKPure: {d:.1f} MB / {t:.1f} MB ({p:.1f}%)"
+                        )
+                    ))
+
+            urllib.request.urlretrieve(apkpure_url, 'apkpure.apk', reporthook=progress_callback)
+
+            # Verify file size
+            if os.path.exists('apkpure.apk'):
+                file_size = os.path.getsize('apkpure.apk')
+                if file_size > 1 * 1024 * 1024:  # At least 1 MB
+                    self.root.after(0, self._download_apkpure_success)
+                else:
+                    os.remove('apkpure.apk')
+                    self.root.after(0, self._download_failed, "Downloaded file too small")
+            else:
+                self.root.after(0, self._download_failed, "Download failed")
+
+        except Exception as e:
+            self.root.after(0, self._download_failed, str(e))
+
+    def _download_apkpure_success(self):
+        """Handle successful APKPure download"""
+        self.download_progress['value'] = 100
+        self.download_progress_label.config(text="APKPure download complete!")
+        self.download_status.config(text="✓ APKPure downloaded", fg="green")
+        self.status_bar.config(text="APKPure ready! Now available on installation page.")
+
+        # Show file size
+        if os.path.exists('apkpure.apk'):
+            size_mb = os.path.getsize('apkpure.apk') / (1024 * 1024)
+            self.download_progress_label.config(text=f"APKPure complete! ({size_mb:.1f} MB)")
+
+        messagebox.showinfo(
+            "Success",
+            "APKPure downloaded successfully!\n\n"
+            "APKPure will now be available on the installation page.\n"
+            "Install it on your TV to update Stremio directly from TV (no PC needed!)\n\n"
+            "Start the server and look for the APKPure link on the installation page."
+        )
+
     def _download_success(self):
         """Handle successful download"""
-        self.download_progress.stop()
+        self.download_progress['value'] = 100
+        self.download_progress_label.config(text="Download complete!")
         self.download_status.config(text="✓ Downloaded successfully", fg="green")
         self.status_bar.config(text="APK ready. You can now start the server or copy to USB.")
+
+        # Show file size
+        if os.path.exists('stremio.apk'):
+            size_mb = os.path.getsize('stremio.apk') / (1024 * 1024)
+            self.download_progress_label.config(text=f"Download complete! ({size_mb:.1f} MB)")
+
         messagebox.showinfo(
             "Success",
             "Stremio APK downloaded successfully!\n\n"
@@ -246,7 +409,8 @@ ALTERNATIVE: USB Installation (Easier!)
 
     def _download_failed(self, error):
         """Handle download failure"""
-        self.download_progress.stop()
+        self.download_progress['value'] = 0
+        self.download_progress_label.config(text="Download failed")
         self.download_status.config(text="✗ Download failed", fg="red")
         self.status_bar.config(text="Download failed. Try again or download manually.")
         messagebox.showerror(
