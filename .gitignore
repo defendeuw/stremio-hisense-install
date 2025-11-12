@@ -1,0 +1,46 @@
+# Stremio Web repository (large, don't commit)
+stremio-web/
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+build/
+dist/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Backups
+*_backup_*.apk
+
+# PyInstaller
+*.spec
+
+# Claude Code
+.claude/
+
+# Release artifacts
+release/
+
+# Downloads directory (optional - uncomment if you don't want to track it)
+# downloads/
+
+# Temporary files
+*.tmp
+*.temp
